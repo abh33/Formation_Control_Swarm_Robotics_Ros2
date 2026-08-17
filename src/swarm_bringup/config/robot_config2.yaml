@@ -1,0 +1,28 @@
+simulation_manager:
+  ros__parameters:
+    robots:
+      robot_0:
+        name: "swarm_robot_0"
+        aruco_id: 1
+        x: 0.0
+        y: 0.0
+      robot_1:
+        name: "swarm_robot_1"
+        aruco_id: 2
+        x: -1.0
+        y: -1.0
+      robot_2:
+        name: "swarm_robot_2"
+        aruco_id: 3
+        x: 1.0
+        y: 1.0
+      robot_3:
+        name: "swarm_robot_3"
+        aruco_id: 4
+        x: -1.0
+        y: 1.0
+      robot_4:
+        name: "swarm_robot_4"
+        aruco_id: 5
+        x: 1.0
+        y: -1.0

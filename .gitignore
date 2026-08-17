@@ -1,0 +1,29 @@
+# ROS2 / colcon build artifacts
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# CoppeliaSim
+*.ttt.bak
+*.ttm.bak
+*_backup.ttt
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment / secrets
+.env
