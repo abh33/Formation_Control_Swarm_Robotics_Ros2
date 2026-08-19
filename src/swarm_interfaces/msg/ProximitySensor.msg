@@ -1,0 +1,3 @@
+float64 proximity_left
+float64 proximity_front
+float64 proximity_right

@@ -277,7 +277,8 @@ def main(args=None):
     
     try:
         node = SimulationManager()
-        rclpy.spin(node)
+        while rclpy.ok():
+            rclpy.spin_once(node, timeout_sec=0.5)
     except KeyboardInterrupt:
         if node is not None:
             node.get_logger().info("Shutting down Simulation Manager via keyboard interrupt.")

@@ -38,7 +38,8 @@ setup(
     entry_points={
         'console_scripts': [
             "hello_node = swarm_coppelia_drivers.hello_node:main",
-            "simulation_manager = swarm_coppelia_drivers.simulation_manager:main"
+            "simulation_manager = swarm_coppelia_drivers.simulation_manager:main",
+            "robot_driver = swarm_coppelia_drivers.robot_driver:main"
         ],
     },
 )
