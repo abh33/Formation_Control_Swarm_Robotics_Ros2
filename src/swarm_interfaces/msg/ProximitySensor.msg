@@ -1,3 +1,6 @@
+int8 left_detected
 float64 proximity_left
+int8 front_detected
 float64 proximity_front
+int8 right_detected
 float64 proximity_right

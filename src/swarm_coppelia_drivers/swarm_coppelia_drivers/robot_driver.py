@@ -33,11 +33,17 @@ class RobotDriver(Node): # MODIFY NAME
         self.robot_proximity_sensor_right_handle = None
         self.initialise_robot_handles()
 
-        # Step 5: Create a subscriber for /{robot_name}/cmd_vel topic
-        self.cmd_velocity = None
-        self.cmd_vel_subscriber = self.create_subscription(Twist, f'{self.robot_name}/cmd_vel', self.cmd_vel_callback, 10)
+        # Step 5: Declare robot constants
+        self.wheel_radius = 0.03204
+        self.wheel_displacement = 0.1877
 
-        ## Step 6: Create publisher for proximity sensor values
+
+        # Step 6: Create a subscriber for /{robot_name}/cmd_vel topic
+        self.cmd_vel_subscriber = self.create_subscription(Twist, f'/{self.robot_name}/cmd_vel', self.cmd_vel_callback, 10)
+
+        ## Step 7: Create publisher for proximity sensor values
+        self.prox_sensor_publisher = self.create_publisher(ProximitySensor, f'/{self.robot_name}/proximity_sensor_vals', 10)
+        self.create_timer(0.2, self.publish_proximity_vals)
 
 
     def connect_to_coppelia(self):
@@ -65,6 +71,10 @@ class RobotDriver(Node): # MODIFY NAME
         This function initialises all the coppeliasim handles for robot, left and right motors
         and 3 proximity sensors
         """
+
+        while rclpy.ok() and (self.simulation_state is None or self.simulation_state != "RUNNING"):
+            rclpy.spin_once(self, timeout_sec=0.5)
+
         try:
             self.robot_handle = self.sim.getObject(f"/{self.robot_name}")
             self.robot_left_motor_handle = self.sim.getObject(f"/{self.robot_name}/left_joint")
@@ -92,10 +102,48 @@ class RobotDriver(Node): # MODIFY NAME
             raise e
 
     def cmd_vel_callback(self, msg:Twist):
-        if self.simulation_state == "RUNNING":
-            self.cmd_velocity = msg.data
-            self.get_logger().info(f"{self.cmd_velocity}")
-        pass
+        """
+        This function receives the robot linear and angular velocity from cmd_vel topic and converts
+        it into wheel velocities for left and right motor (in rad/s). Then the wheel velocities are
+        written to the corresponding motors.
+        """
+        if self.simulation_state != "RUNNING":
+            return
+
+        linear_x = msg.linear.x
+        angular_z = msg.angular.z
+
+        v_left = (linear_x - (angular_z * self.wheel_displacement / 2)) / self.wheel_radius
+        v_right = (linear_x + (angular_z * self.wheel_displacement / 2)) / self.wheel_radius
+
+        self.sim.setJointTargetVelocity(self.robot_left_motor_handle, v_left)
+        self.sim.setJointTargetVelocity(self.robot_right_motor_handle, v_right)
+
+    def publish_proximity_vals(self):
+        """
+        This function reads the 3 proximity sensors associated with the robot and publishes the values
+        to the topic /{robot_name}/proximity_sensor_vals
+        """
+        if self.simulation_state != "RUNNING":
+            return
+
+        detected_left , dist_left, _, _, _ = self.sim.readProximitySensor(self.robot_proximity_sensor_left_handle)
+        detected_front , dist_front, _, _, _ = self.sim.readProximitySensor(self.robot_proximity_sensor_front_handle)
+        detected_right , dist_right, _, _, _ = self.sim.readProximitySensor(self.robot_proximity_sensor_right_handle)
+
+        dist_left = round(dist_left, 3)
+        dist_front = round(dist_front, 3)
+        dist_right = round(dist_right, 3)            
+        # self.get_logger().info(f'{self.robot_name} : dist_left-{dist_left} dist_front-{dist_front} dist_right -{dist_right}')
+        msg = ProximitySensor()
+        msg.left_detected = detected_left
+        msg.front_detected = detected_front
+        msg.right_detected = detected_right
+        msg.proximity_left = dist_left
+        msg.proximity_front = dist_front
+        msg.proximity_right = dist_right
+
+        self.prox_sensor_publisher.publish(msg)
         
 
  
