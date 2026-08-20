@@ -13,14 +13,22 @@ def generate_launch_description():
 
     yaml_data = config['simulation_manager']['ros__parameters']['robots']
     robot_names = sorted(yaml_data.keys())
-    print("Robot Names" + str(robot_names))
-    print(str(yaml_data))
-
+    robot_lookup = {}
+    for robot_name in robot_names:
+        name = yaml_data[robot_name]['name']
+        aruco_id = yaml_data[robot_name]['aruco_id']
+        robot_lookup[f"id_{aruco_id}"] = name
+    print(robot_lookup)
 
     simulation_manager_node = Node(
         package='swarm_coppelia_drivers',
         executable='simulation_manager',
         parameters=[config_path])
+
+    camera_vision_sensor_node = Node(
+        package='swarm_coppelia_drivers',
+        executable='camera_vision_sensor_node',
+        parameters=[{'robot_lookup': robot_lookup}])
 
     robot_driver_nodes = []
     for temp in robot_names:
@@ -33,4 +41,4 @@ def generate_launch_description():
             parameters=[{'robot_name': name}])
         robot_driver_nodes.append(node)
 
-    return LaunchDescription([simulation_manager_node, *robot_driver_nodes])
+    return LaunchDescription([simulation_manager_node, *robot_driver_nodes, camera_vision_sensor_node])
