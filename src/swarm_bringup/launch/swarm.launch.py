@@ -17,7 +17,7 @@ def generate_launch_description():
     for robot_name in robot_names:
         name = yaml_data[robot_name]['name']
         aruco_id = yaml_data[robot_name]['aruco_id']
-        robot_lookup[f"id_{aruco_id}"] = name
+        robot_lookup[f"{aruco_id}"] = name
     print(robot_lookup)
 
     simulation_manager_node = Node(
