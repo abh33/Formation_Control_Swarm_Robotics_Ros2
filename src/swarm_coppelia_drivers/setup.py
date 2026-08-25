@@ -22,6 +22,8 @@ setup(
 
         (os.path.join('share', package_name, 'markers', 'svg'), glob(os.path.join('markers', 'svg', '*.svg'))),
 
+        (os.path.join('share', package_name, 'homography'), glob(os.path.join('homography', '*.npy'))),
+
         
     ],
     install_requires=['setuptools'],

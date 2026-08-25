@@ -259,7 +259,7 @@ class SimulationManager(Node):
         texture_options = 0  
         shape_handle, texture_id, _ = self.sim.createTexture(image_path, texture_options)
         
-        uv_scaling = [0.125, 0.125]
+        uv_scaling = [0.15, 0.15]
         self.sim.setShapeTexture(aruco_handle, texture_id, self.sim.texturemap_plane, -1, uv_scaling)
         self.sim.removeObjects([shape_handle]) # Clean up temporary generation shape container
 
