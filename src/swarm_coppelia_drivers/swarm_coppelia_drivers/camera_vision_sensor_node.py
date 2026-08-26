@@ -50,9 +50,9 @@ class CameraVisionSensorNode(Node): # MODIFY NAME
 
         self.counter = 0
 
-        ## Step 8: Homography
-        h_file_path = self.get_homography_file_path()
-        self.homography_matrix = np.load(h_file_path)
+        ## Step 8: Homography        
+        self.homography_matrix = None
+        self.get_homography_matrix()
 
 
 
@@ -228,7 +228,7 @@ class CameraVisionSensorNode(Node): # MODIFY NAME
             self.aruco_pose_dict = {}
             # self.get_logger().info(f"detected_arucos.keys(): {self.detected_arucos.keys()}")
 
-            if self.detected_arucos:
+            if self.detected_arucos and self.homography_matrix is not None:
                 for detected in self.detected_arucos.keys():
 
                     aruco_id = detected
@@ -239,14 +239,17 @@ class CameraVisionSensorNode(Node): # MODIFY NAME
                     wpos_x, wpos_y= round(float(wpos_x), 2), round(float(wpos_y),2)
                     
 
-                    # Calculate orientation angle (theta) using top-left and top-right corners
+                    # Calculate orientation angle (theta) using top-left and top-right corners of aruco marker
+                    # and converting them to world coordinates
                     # top_left = corners[0], top_right = corners[1]
-                    delta_x = corners[1][0] - corners[0][0]
-                    delta_y = corners[1][1] - corners[0][1]
-                    theta = np.arctan2(delta_y, delta_x)
-                    theta_degrees = round(float(np.degrees(theta)), 2)
+                    top_left_world = self.pixel_to_world(corners[0][0], corners[0][1], self.homography_matrix)
+                    top_right_world = self.pixel_to_world(corners[1][0], corners[1][1], self.homography_matrix)
 
-                    self.aruco_pose_dict[aruco_id] = (wpos_x, wpos_y, theta_degrees)
+                    world_dx = top_right_world[0] - top_left_world[0]
+                    world_dy = top_right_world[1] - top_left_world[1]
+                    theta_degrees = round(float(np.degrees(np.arctan2(world_dy, world_dx))), 2)
+                    theta_corrected = np.degrees(np.arctan2(np.sin(np.radians(theta_degrees + 90)), np.cos(np.radians(theta_degrees + 90))))
+                    self.aruco_pose_dict[aruco_id] = (wpos_x, wpos_y, theta_corrected)
 
                 # self.get_logger().info(f"Aruco_pose_dict: {self.aruco_pose_dict}")
 
@@ -279,21 +282,21 @@ class CameraVisionSensorNode(Node): # MODIFY NAME
             pose_array.robot_pose.append(pose)
         self.pose_publisher.publish(pose_array)
 
-    def homography_calculations(self):
-        aruco_list = []
-        pixel_pos_list = []
-        aruco_keys_sorted = sorted(self.aruco_pose_dict.keys())
-        world_pos_list = []
-        for id in aruco_keys_sorted:
-            aruco_list.append(id)
-            temp = (self.aruco_pose_dict[id][0], self.aruco_pose_dict[id][1])
-            temp = list(temp)
-            pixel_pos_list.append(temp)
+    # def homography_calculations(self):
+    #     aruco_list = []
+    #     pixel_pos_list = []
+    #     aruco_keys_sorted = sorted(self.aruco_pose_dict.keys())
+    #     world_pos_list = []
+    #     for id in aruco_keys_sorted:
+    #         aruco_list.append(id)
+    #         temp = (self.aruco_pose_dict[id][0], self.aruco_pose_dict[id][1])
+    #         temp = list(temp)
+    #         pixel_pos_list.append(temp)
 
-        world_pos_list = [[0.0, 0.0],[-1.3, -1.3],[1.3, 1.3],[-1.3, 1.3],[1.3, -1.3], [-1.3, 0.0],[1.3, 0.0],[0.0, 1.3],[0.0, -1.3],[-0.65, -0.65], [0.65, 0.65], [-0.65, 0.65], [0.65, -0.65], [-0.65, 0.0], [0.65, 0.0], [0.0, 0.65], [0.0, -0.65]]
+    #     world_pos_list = [[0.0, 0.0],[-1.3, -1.3],[1.3, 1.3],[-1.3, 1.3],[1.3, -1.3], [-1.3, 0.0],[1.3, 0.0],[0.0, 1.3],[0.0, -1.3],[-0.65, -0.65], [0.65, 0.65], [-0.65, 0.65], [0.65, -0.65], [-0.65, 0.0], [0.65, 0.0], [0.0, 0.65], [0.0, -0.65]]
 
-        pixel_pos_np = np.array(pixel_pos_list, dtype=np.float32)
-        world_pos_np = np.array(world_pos_list, dtype=np.float32)
+    #     pixel_pos_np = np.array(pixel_pos_list, dtype=np.float32)
+    #     world_pos_np = np.array(world_pos_list, dtype=np.float32)
 
         # self.get_logger().info(f"{pixel_pos_np}")
         # self.get_logger().info(f"{world_pos_np}")
@@ -324,6 +327,17 @@ class CameraVisionSensorNode(Node): # MODIFY NAME
         point = np.array([[[px, py]]], dtype=np.float32)
         world_point = cv2.perspectiveTransform(point, H)
         return world_point[0][0]  # (world_x, world_y)
+
+    def get_homography_matrix(self):
+        """
+        Load the homography matrix from homography.npy file
+        """
+        try:
+            h_file_path = self.get_homography_file_path()
+            self.homography_matrix = np.load(h_file_path)
+        except Exception as e:
+            self.get_logger().error(f"Failed to get homography matrix: \n{traceback.format_exc()}")
+
 
 
 
