@@ -30,6 +30,11 @@ def generate_launch_description():
         executable='camera_vision_sensor_node',
         parameters=[{'robot_lookup': robot_lookup}])
 
+    goal_allocation_node = Node(
+        package='swarm_coppelia_drivers',
+        executable='goal_allocation',
+        parameters=[{'robot_lookup': robot_lookup}])
+
     robot_driver_nodes = []
     for temp in robot_names:
         name = yaml_data[temp]['name']
@@ -41,4 +46,4 @@ def generate_launch_description():
             parameters=[{'robot_name': name}])
         robot_driver_nodes.append(node)
 
-    return LaunchDescription([simulation_manager_node, *robot_driver_nodes, camera_vision_sensor_node])
+    return LaunchDescription([simulation_manager_node, *robot_driver_nodes, camera_vision_sensor_node, goal_allocation_node])
