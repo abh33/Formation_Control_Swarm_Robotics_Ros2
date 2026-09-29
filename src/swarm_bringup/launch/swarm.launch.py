@@ -6,7 +6,7 @@ import yaml
 
 def generate_launch_description():
     config_path = os.path.join(
-        get_package_share_directory('swarm_bringup'), 'config', 'robot_config2.yaml')
+        get_package_share_directory('swarm_bringup'), 'config', 'robot_config5.yaml')
 
     with open(config_path) as f:
         config = yaml.safe_load(f)
@@ -31,7 +31,7 @@ def generate_launch_description():
         parameters=[{'robot_lookup': robot_lookup}])
 
     goal_allocation_node = Node(
-        package='swarm_coppelia_drivers',
+        package='swarm_control',
         executable='goal_allocation',
         parameters=[{'robot_lookup': robot_lookup}])
 
@@ -46,4 +46,15 @@ def generate_launch_description():
             parameters=[{'robot_name': name}])
         robot_driver_nodes.append(node)
 
-    return LaunchDescription([simulation_manager_node, *robot_driver_nodes, camera_vision_sensor_node, goal_allocation_node])
+    robot_controller_nodes = []
+    for temp in robot_names:
+        name = yaml_data[temp]['name']
+        node = Node(
+            package='swarm_control',
+            executable='robot_controller',
+            namespace=name,
+            name='robot_controller',
+            parameters=[{'robot_name': name}])
+        robot_controller_nodes.append(node)
+
+    return LaunchDescription([simulation_manager_node, *robot_driver_nodes, camera_vision_sensor_node, goal_allocation_node, *robot_controller_nodes])
