@@ -15,6 +15,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/ProximitySensor.msg"
   "msg/RobotPose.msg"
   "msg/RobotPoseArray.msg"
+  "msg/RobotGoal.msg"
+  "msg/RobotGoalArray.msg"
  )
 ament_export_dependencies(rosidl_default_runtime)
 
