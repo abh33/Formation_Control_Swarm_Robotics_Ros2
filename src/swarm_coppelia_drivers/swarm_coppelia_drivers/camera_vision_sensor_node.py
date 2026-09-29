@@ -282,33 +282,53 @@ class CameraVisionSensorNode(Node): # MODIFY NAME
             pose_array.robot_pose.append(pose)
         self.pose_publisher.publish(pose_array)
 
-    # def homography_calculations(self):
-    #     aruco_list = []
-    #     pixel_pos_list = []
-    #     aruco_keys_sorted = sorted(self.aruco_pose_dict.keys())
-    #     world_pos_list = []
-    #     for id in aruco_keys_sorted:
-    #         aruco_list.append(id)
-    #         temp = (self.aruco_pose_dict[id][0], self.aruco_pose_dict[id][1])
-    #         temp = list(temp)
-    #         pixel_pos_list.append(temp)
+    def homography_calculations(self):
+        """
+        Calibrates a pixel->world homography using RAW pixel marker centers
+        (recomputed directly from self.detected_arucos corners this tick) against
+        known world coordinates for each ArUco id. Deliberately does NOT use
+        self.aruco_pose_dict, since those values are already world-transformed
+        via whatever homography_matrix is currently loaded - using them here
+        would calibrate against an already-transformed space rather than raw
+        pixels, compounding any error already present in the loaded matrix.
+        """
+        world_pos_lookup = {
+            1: (0.0, 0.0),
+            2: (-1.3, -1.3), 3: (1.3, 1.3), 4: (-1.3, 1.3), 5: (1.3, -1.3),
+            6: (-1.3, 0.0), 7: (1.3, 0.0), 8: (0.0, 1.3), 9: (0.0, -1.3),
+            10: (-0.65, -0.65), 11: (0.65, 0.65), 12: (-0.65, 0.65), 13: (0.65, -0.65),
+            14: (-0.65, 0.0), 15: (0.65, 0.0), 16: (0.0, 0.65), 17: (0.0, -0.65),
+        }
 
-    #     world_pos_list = [[0.0, 0.0],[-1.3, -1.3],[1.3, 1.3],[-1.3, 1.3],[1.3, -1.3], [-1.3, 0.0],[1.3, 0.0],[0.0, 1.3],[0.0, -1.3],[-0.65, -0.65], [0.65, 0.65], [-0.65, 0.65], [0.65, -0.65], [-0.65, 0.0], [0.65, 0.0], [0.0, 0.65], [0.0, -0.65]]
+        pixel_pos_list = []
+        world_pos_list = []
+        for aruco_id in sorted(self.detected_arucos.keys()):
+            if aruco_id not in world_pos_lookup:
+                continue  # not one of the calibration markers, ignore
+            corners = self.detected_arucos[aruco_id]
+            center_x = float(np.mean(corners[:, 0]))
+            center_y = float(np.mean(corners[:, 1]))
+            pixel_pos_list.append([center_x, center_y])
+            world_pos_list.append(list(world_pos_lookup[aruco_id]))
 
-    #     pixel_pos_np = np.array(pixel_pos_list, dtype=np.float32)
-    #     world_pos_np = np.array(world_pos_list, dtype=np.float32)
+        if len(pixel_pos_list) < 4:
+            self.get_logger().warning(
+                f"Only {len(pixel_pos_list)} calibration markers detected this tick, need at least 4."
+            )
+            return
 
-        # self.get_logger().info(f"{pixel_pos_np}")
-        # self.get_logger().info(f"{world_pos_np}")
+        pixel_pos_np = np.array(pixel_pos_list, dtype=np.float32)
+        world_pos_np = np.array(world_pos_list, dtype=np.float32)
 
-        # H, mask = cv2.findHomography(pixel_pos_np, world_pos_np, method=cv2.RANSAC)
+        # self.get_logger().info(f"pixel coords {pixel_pos_np}")
+        # self.get_logger().info(f"world coords {world_pos_np}")
 
-        # self.counter = self.counter + 1
-        # self.get_logger().info(f"Counter: {self.counter}")
-        # self.get_logger().info(f"Homography: {H}")
-        # self.get_logger().info(f"Mask: {mask}")
-        # if self.counter == 201:
-        #     np.save('homography.npy', H)
+        H, mask = cv2.findHomography(pixel_pos_np, world_pos_np, method=cv2.RANSAC)
+
+        self.counter += 1
+        if self.counter == 201:
+            np.save('homography.npy', H)
+            self.get_logger().info("Saved calibrated homography.npy")
 
     def get_homography_file_path(self) -> str:
         """

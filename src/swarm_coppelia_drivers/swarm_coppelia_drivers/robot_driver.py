@@ -36,14 +36,24 @@ class RobotDriver(Node): # MODIFY NAME
         # Step 5: Declare robot constants
         self.wheel_radius = 0.03204
         self.wheel_displacement = 0.1877
+        self.max_wheel_velocity = 8.0       ## rad/s
+        self.max_wheel_acceleration = 15.0  ## rad/s^2
 
+        self.v_left_target = 0.0
+        self.v_right_target = 0.0
+        self.v_left_current = 0.0
+        self.v_right_current = 0.0
 
         # Step 6: Create a subscriber for /{robot_name}/cmd_vel topic
         self.cmd_vel_subscriber = self.create_subscription(Twist, f'/{self.robot_name}/cmd_vel', self.cmd_vel_callback, 10)
 
+        # New: high-frequency ramp/actuate loop, decoupled from cmd_vel arrival rate
+        self.ramp_period = 0.02  # 50Hz
+        self.create_timer(self.ramp_period, self.ramp_and_actuate)
+
         ## Step 7: Create publisher for proximity sensor values
         self.prox_sensor_publisher = self.create_publisher(ProximitySensor, f'/{self.robot_name}/proximity_sensor_vals', 10)
-        self.create_timer(0.2, self.publish_proximity_vals)
+        self.create_timer(0.1, self.publish_proximity_vals)
 
 
     def connect_to_coppelia(self):
@@ -116,8 +126,11 @@ class RobotDriver(Node): # MODIFY NAME
         v_left = (linear_x - (angular_z * self.wheel_displacement / 2)) / self.wheel_radius
         v_right = (linear_x + (angular_z * self.wheel_displacement / 2)) / self.wheel_radius
 
-        self.sim.setJointTargetVelocity(self.robot_left_motor_handle, v_left)
-        self.sim.setJointTargetVelocity(self.robot_right_motor_handle, v_right)
+        self.v_left_target, self.v_right_target = self.clamp_wheel_velocities(v_left, v_right)
+
+        # self.get_logger().info(f"Robot wheel velocities v_left:{v_left} , v_right:{v_right}")
+        # self.sim.setJointTargetVelocity(self.robot_left_motor_handle, v_left)
+        # self.sim.setJointTargetVelocity(self.robot_right_motor_handle, v_right)
 
     def publish_proximity_vals(self):
         """
@@ -144,6 +157,34 @@ class RobotDriver(Node): # MODIFY NAME
         msg.proximity_right = dist_right
 
         self.prox_sensor_publisher.publish(msg)
+
+    def clamp_wheel_velocities(self, v_left, v_right):
+        max_abs = max(abs(v_left), abs(v_right))
+        if max_abs > self.max_wheel_velocity:
+            scale = self.max_wheel_velocity / max_abs
+            v_left *= scale
+            v_right *= scale
+        return v_left, v_right
+
+    def ramp_and_actuate(self):
+        """Steps current wheel velocities toward their targets by a bounded
+        amount each tick, then actuates - this is what prevents an abrupt
+        0 -> max_velocity jump from being applied in a single physics step."""
+        if self.simulation_state != "RUNNING":
+            return
+
+        max_delta = self.max_wheel_acceleration * self.ramp_period
+
+        delta_left = self.v_left_target - self.v_left_current
+        delta_left = max(-max_delta, min(max_delta, delta_left))
+        self.v_left_current += delta_left
+
+        delta_right = self.v_right_target - self.v_right_current
+        delta_right = max(-max_delta, min(max_delta, delta_right))
+        self.v_right_current += delta_right
+
+        self.sim.setJointTargetVelocity(self.robot_left_motor_handle, self.v_left_current)
+        self.sim.setJointTargetVelocity(self.robot_right_motor_handle, self.v_right_current)
         
 
  
